@@ -1,0 +1,20 @@
+{
+  "name": "marketplace-sms-handoff-observability",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/checkout_handoff_service.ts",
+    "demo": "tsx scripts/trace_buyer_update.ts",
+    "test": "tsx --test test/order_handoff.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
