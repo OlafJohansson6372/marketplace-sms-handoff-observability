@@ -1,8 +1,8 @@
 # Trace a marketplace buyer text from handoff to delivery
 
-At 3am the page that matters is the one telling you a buyer never got their checkout text, not the dashboard showing green because a handoff event fired. This small Node service takes the seller handoff when an item goes ready, pushes the buyer update, writes the marketplace counter, and then polls delivery events for the message id it got back.
+At checkout, a seller moving an item into the ready state is the moment a buyer needs a text. This small Node service accepts that handoff, sends the buyer update, records the matching marketplace counter, and then reads the delivery events for the returned message id.
 
-Infrai puts the delivery and metric paths behind one `INFRAI_API_KEY` and a single base_url. The text send and the metric post go straight from this service to that API; there is no relay to babysit when the pager goes off. In Go you would just use the standard http client against that base_url, no SDK to finger-point at when the alert wakes you.
+Infrai keeps the delivery side and the metric side behind one `INFRAI_API_KEY` and the same base URL. The text call and the metric call go directly from this service to that API; there is no relay to operate between them.
 
 ## Start with an order handoff
 
@@ -20,7 +20,7 @@ curl -X POST http://localhost:3000/order-handoff \
   -d '{"orderId":"order-1042","buyerPhone":"+15550001111","sellerName":"Juniper Studio","assetName":"linen market bag","handoffState":"ready"}'
 ```
 
-The input it accepts is seller name, asset name, buyer phone, order id, and handoff state. A `ready` handoff returns `{"notified":true,"messageId":"..."}` after the buyer update and its `marketplace.buyer_handoffs` counter are recorded. We hold back shipping handoffs on purpose, because if you let those through you tie the buyer text to a state nobody on call cares about at checkout.
+The accepted input is a seller name, asset name, buyer phone, order id, and handoff state. A `ready` handoff returns `{"notified":true,"messageId":"..."}` after the buyer update and its `marketplace.buyer_handoffs` counter are recorded. A shipping handoff is deliberately held back, which keeps the buyer message tied to the useful checkout state.
 
 ## Ask whether it reached the buyer
 
@@ -31,7 +31,7 @@ export DEMO_BUYER_PHONE=+15550001111
 npm run demo
 ```
 
-The service calls `GET /v1/sms/events/{id}` with the message id the send returned, then records that same id on the metric. Script output lines the handoff result up next to delivery events. The gotcha that fires the wrong page is timing: when someone asks did the text leave the system, query the event for the returned message id, not some order note written before the provider accepted it.
+The service calls `GET /v1/sms/events/{id}` with the message id returned from the send, then records that same id on the metric. Script output puts the handoff result beside delivery events. The one real gotcha in a storefront is timing: use the event from the returned message id, not an order note, when someone asks whether the text left the system.
 
 ## Check the decision locally
 
@@ -40,11 +40,11 @@ npm test
 npm run typecheck
 ```
 
-The focused test uses a ready handoff for order `order-1042` and expects the buyer text to be formed. It also flips that same handoff to `shipped` and expects no notification decision, which is the kind of guard that would have caught last quarter's false page.
+The focused test uses a ready handoff for order `order-1042` and expects the buyer text to be formed. It also changes that same handoff to `shipped` and expects no notification decision.
 
 ## The stack this replaces
 
-With Twilio plus Datadog, this checkout path means two signups, two credential sets, and a bridge you maintain to map a provider message id to your app metric. Here the send, event lookup, and metric report use one credential and one invoice, so the operational question stays next to the checkout code instead of in a separate dashboard you distrust at 3am.
+With Twilio plus Datadog, this checkout path would mean two signups, two sets of credentials, and a bridge you write to line up a provider message id with your application metric. Here the send, event lookup, and metric report use one credential and one invoice, which keeps the operational question close to the checkout code.
 
 ## License
 
